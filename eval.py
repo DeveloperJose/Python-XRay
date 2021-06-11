@@ -1,5 +1,6 @@
 #####################################################
-# Copyright (c) Xuanyi Dong [GitHub D-X-Y], 2019.01 #
+# Author: Jose G. Perez
+# Modified from AutoDL-Projects/exps/basic/basic-main.py (by Xuanyi Dong [GitHub D-X-Y])
 #####################################################
 import os, sys, time, torch, random, argparse
 from PIL import ImageFile

@@ -1,5 +1,6 @@
 #####################################################
-# Copyright (c) Xuanyi Dong [GitHub D-X-Y], 2019.01 #
+# Author: Jose G. Perez
+# Modified from AutoDL-Projects/exps/basic/basic-main.py (by Xuanyi Dong [GitHub D-X-Y])
 #####################################################
 import sys, time, torch, random, argparse
 from PIL import ImageFile
@@ -9,11 +10,8 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 from copy import deepcopy
 from pathlib import Path
 
-from xautodl.datasets import get_datasets
-from xautodl.config_utils import load_config, obtain_basic_args as obtain_args
 from xautodl.procedures import (
     prepare_seed,
-    prepare_logger,
     save_checkpoint,
     copy_checkpoint,
 )
@@ -21,51 +19,76 @@ from xautodl.procedures import get_optim_scheduler, get_procedures
 from xautodl.models import obtain_model
 from xautodl.nas_infer_model import obtain_nas_infer_model
 from xautodl.utils import get_model_infos
-from xautodl.log_utils import AverageMeter, time_string, convert_secs2time
+from xautodl.log_utils import Logger, AverageMeter, time_string, convert_secs2time
 
+from xray_dataset import XrayImageDataset
 
-def main(args):
+def main():
+    RAND_SEED = 42
+    BATCH_SIZE = 128
+    N_WORKERS = 4
+    PRINT_FREQUENCY = 100
+    PRINT_FREQUENCY_EVAL = 200
+    EVAL_FREQUENCY = 1
+    PROCEDURE = 'basic'
+
+    # The type of model
+    MODEL_SOURCE = 'normal'
+    # Extra model CKP file (help to indicate searched architecture)
+    EXTRA_MODEL_PATH = None
+    # Resume path (if exists)
+    RESUME_PATH = ''
+    # The path of the initialization model
+    INIT_MODEL_PATH = ''
+    # The path for the model architecture configuration
+    MODEL_ARCH_CONFIG_PATH = 'XRAY-Arch.config'
+    # The path for the model optimization configuration
+    MODEL_OPT_CONFIG_PATH = 'XRAY-Opts.config'
+    # Directory to save log and model files
+    SAVE_DIR = './output/simple_model/'
+
     assert torch.cuda.is_available(), "CUDA is not available."
     torch.backends.cudnn.enabled = True
     torch.backends.cudnn.benchmark = True
     # torch.backends.cudnn.deterministic = True
-    # torch.set_num_threads(args.workers)
+    # torch.set_num_threads(N_WORKERS)
 
-    prepare_seed(args.rand_seed)
-    logger = prepare_logger(args)
+    prepare_seed(RAND_SEED)
+    logger = Logger(SAVE_DIR, RAND_SEED)
 
-    train_data, valid_data, xshape, class_num = get_datasets(
-        args.dataset, args.data_path, args.cutout_length
-    )
+    train_data, val_data, test_data, x_shape, num_classes = XrayImageDataset.get_datasets()
 
     train_loader = torch.utils.data.DataLoader(
         train_data,
-        batch_size=args.batch_size,
+        batch_size=BATCH_SIZE,
         shuffle=True,
-        num_workers=args.workers,
+        num_workers=N_WORKERS,
         pin_memory=True,
     )
     valid_loader = torch.utils.data.DataLoader(
-        valid_data,
-        batch_size=args.batch_size,
+        val_data,
+        batch_size=BATCH_SIZE,
         shuffle=False,
-        num_workers=args.workers,
+        num_workers=N_WORKERS,
         pin_memory=True,
     )
-    # get configures
-    print("DEBUG: " + str(args.model_config))
-    model_config = load_config(args.model_config, {"class_num": class_num}, logger)
-    optim_config = load_config(args.optim_config, {"class_num": class_num}, logger)
 
-    if args.model_source == "normal":
+    # Get model and optimizer configurations
+    model_config = load_config(MODEL_ARCH_CONFIG_PATH, {"class_num": num_classes}, logger)
+    optim_config = load_config(MODEL_OPT_CONFIG_PATH, {"class_num": num_classes}, logger)
+
+    # Obtain the model based on the model source type
+    if MODEL_SOURCE == "normal":
         base_model = obtain_model(model_config)
-    elif args.model_source == "nas":
-        base_model = obtain_nas_infer_model(model_config, args.extra_model_path)
-    elif args.model_source == "autodl-searched":
-        base_model = obtain_model(model_config, args.extra_model_path)
+    elif MODEL_SOURCE == "nas":
+        base_model = obtain_nas_infer_model(model_config, EXTRA_MODEL_PATH)
+    elif MODEL_SOURCE == "autodl-searched":
+        base_model = obtain_model(model_config, EXTRA_MODEL_PATH)
     else:
-        raise ValueError("invalid model-source : {:}".format(args.model_source))
-    flop, param = get_model_infos(base_model, xshape)
+        raise ValueError(f"invalid model-source : {MODEL_SOURCE}")
+    
+    # Log some model information and data information
+    flop, param = get_model_infos(base_model, x_shape)
     logger.log("model ====>>>>:\n{:}".format(base_model))
     logger.log("model information : {:}".format(base_model.get_message()))
     logger.log("-" * 50)
@@ -76,7 +99,7 @@ def main(args):
     )
     logger.log("-" * 50)
     logger.log("train_data : {:}".format(train_data))
-    logger.log("valid_data : {:}".format(valid_data))
+    logger.log("valid_data : {:}".format(val_data))
     optimizer, scheduler, criterion = get_optim_scheduler(
         base_model.parameters(), optim_config
     )
@@ -89,6 +112,8 @@ def main(args):
         logger.path("model"),
         logger.path("best"),
     )
+
+    # Prepare network for training
     network, criterion = torch.nn.DataParallel(base_model).cuda(), criterion.cuda()
 
     if last_info.exists():  # automatically resume from previous checkpoint
@@ -118,11 +143,11 @@ def main(args):
                 last_info, start_epoch
             )
         )
-    elif args.resume is not None:
-        assert Path(args.resume).exists(), "Can not find the resume file : {:}".format(
-            args.resume
+    elif RESUME_PATH is not None:
+        assert Path(RESUME_PATH).exists(), "Can not find the resume file : {:}".format(
+            RESUME_PATH
         )
-        checkpoint = torch.load(args.resume)
+        checkpoint = torch.load(RESUME_PATH)
         start_epoch = checkpoint["epoch"] + 1
         base_model.load_state_dict(checkpoint["base-model"])
         scheduler.load_state_dict(checkpoint["scheduler"])
@@ -131,22 +156,22 @@ def main(args):
         max_bytes = checkpoint["max_bytes"]
         logger.log(
             "=> loading checkpoint from '{:}' start with {:}-th epoch.".format(
-                args.resume, start_epoch
+                RESUME_PATH, start_epoch
             )
         )
-    elif args.init_model is not None:
+    elif INIT_MODEL_PATH is not None:
         assert Path(
-            args.init_model
-        ).exists(), "Can not find the initialization file : {:}".format(args.init_model)
-        checkpoint = torch.load(args.init_model)
+            INIT_MODEL_PATH
+        ).exists(), "Can not find the initialization file : {:}".format(INIT_MODEL_PATH)
+        checkpoint = torch.load(INIT_MODEL_PATH)
         base_model.load_state_dict(checkpoint["base-model"])
         start_epoch, valid_accuracies, max_bytes = 0, {"best": -1}, {}
-        logger.log("=> initialize the model from {:}".format(args.init_model))
+        logger.log("=> initialize the model from {:}".format(INIT_MODEL_PATH))
     else:
         logger.log("=> do not find the last-info file : {:}".format(last_info))
         start_epoch, valid_accuracies, max_bytes = 0, {"best": -1}, {}
 
-    train_func, valid_func = get_procedures(args.procedure)
+    train_func, valid_func = get_procedures(PROCEDURE)
 
     total_epoch = optim_config.epochs + optim_config.warmup
     # Main Training and Evaluation Loop
@@ -180,7 +205,7 @@ def main(args):
             optimizer,
             optim_config,
             epoch_str,
-            args.print_freq,
+            PRINT_FREQUENCY,
             logger,
         )
         # log the results
@@ -191,7 +216,7 @@ def main(args):
         )
 
         # evaluate the performance
-        if (epoch % args.eval_frequency == 0) or (epoch + 1 == total_epoch):
+        if (epoch % EVAL_FREQUENCY == 0) or (epoch + 1 == total_epoch):
             logger.log("-" * 150)
             valid_loss, valid_acc1, valid_acc5 = valid_func(
                 valid_loader,
@@ -199,7 +224,7 @@ def main(args):
                 criterion,
                 optim_config,
                 epoch_str,
-                args.print_freq_eval,
+                PRINT_FREQUENCY_EVAL,
                 logger,
             )
             valid_accuracies[epoch] = valid_acc1
@@ -247,7 +272,7 @@ def main(args):
         save_path = save_checkpoint(
             {
                 "epoch": epoch,
-                "args": deepcopy(args),
+                "args": "none",
                 "max_bytes": deepcopy(max_bytes),
                 "FLOP": flop,
                 "PARAM": param,
@@ -266,7 +291,7 @@ def main(args):
         last_info = save_checkpoint(
             {
                 "epoch": epoch,
-                "args": deepcopy(args),
+                "args": "none",
                 "last_checkpoint": save_path,
             },
             logger.path("info"),
@@ -290,5 +315,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    args = obtain_args()
-    main(args)
+    main()
