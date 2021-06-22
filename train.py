@@ -11,6 +11,7 @@ from copy import deepcopy
 from pathlib import Path
 
 from xautodl.procedures import (
+
     prepare_seed,
     save_checkpoint,
     copy_checkpoint,
@@ -20,6 +21,7 @@ from xautodl.models import obtain_model
 from xautodl.nas_infer_model import obtain_nas_infer_model
 from xautodl.utils import get_model_infos
 from xautodl.log_utils import Logger, AverageMeter, time_string, convert_secs2time
+from xautodl.config_utils import load_config
 
 from xray_dataset import XrayImageDataset
 
@@ -37,15 +39,15 @@ def main():
     # Extra model CKP file (help to indicate searched architecture)
     EXTRA_MODEL_PATH = None
     # Resume path (if exists)
-    RESUME_PATH = ''
+    RESUME_PATH = None
     # The path of the initialization model
-    INIT_MODEL_PATH = ''
+    INIT_MODEL_PATH = None
     # The path for the model architecture configuration
     MODEL_ARCH_CONFIG_PATH = 'XRAY-Arch.config'
     # The path for the model optimization configuration
     MODEL_OPT_CONFIG_PATH = 'XRAY-Opts.config'
     # Directory to save log and model files
-    SAVE_DIR = './output/simple_model/'
+    SAVE_DIR = './output/test_model/'
 
     assert torch.cuda.is_available(), "CUDA is not available."
     torch.backends.cudnn.enabled = True

@@ -16,7 +16,7 @@ class XrayImageDataset(Dataset):
         self.y_transform_func = y_transform_func
 
         self.is_annotated = csv_file is not None
-        print("[XRayImageDataset] Creating dataset v4, csv=", csv_file)
+        print("[XRayImageDataset] Creating dataset v2, csv=", csv_file)
         if self.is_annotated:
             self.df = pd.read_csv(csv_file, dtype={'ImageId': str, 'Label': int})
             self.df['ImagePath'] = self.df['ImageId'].apply(lambda file_id: os.path.join(self.img_dir, file_id + ".png"))
@@ -47,7 +47,7 @@ class XrayImageDataset(Dataset):
 
     @staticmethod
     def get_datasets():
-        dataset_dir = Path('/data/datasets/xray-dataset/')
+        dataset_dir = Path('/data/datasets/xray-dataset/v2/')
 
         x_transform = transforms.Compose(
                 [
