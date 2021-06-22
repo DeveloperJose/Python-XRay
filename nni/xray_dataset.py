@@ -8,21 +8,24 @@ from PIL import Image
 from torch.utils.data import Dataset
 import torchvision.transforms as transforms
 
+DEBUG = True
+
 class XrayImageDataset(Dataset):
-    def __init__(self, img_dir, csv_file, x_transform_func=None, y_transform_func=None):
+    def __init__(self, img_dir, csv_file, x_transform_func=None):
         self.img_dir = img_dir
         self.csv_file = csv_file
         self.x_transform_func = x_transform_func
-        self.y_transform_func = y_transform_func
 
         self.is_annotated = csv_file is not None
-        print("[XRayImageDataset] Creating dataset v2, csv=", csv_file)
+        print(f"[XRayImageDataset] Creating dataset v2, csv={csv_file}, debugging={DEBUG}")
         if self.is_annotated:
             self.df = pd.read_csv(csv_file, dtype={'ImageId': str, 'Label': int})
             self.df['ImagePath'] = self.df['ImageId'].apply(lambda file_id: os.path.join(self.img_dir, file_id + ".png"))
 
     def __len__(self):
-        if self.is_annotated:
+        if DEBUG:
+            return 10
+        elif self.is_annotated:
             return len(self.df)
         else:
             return len(os.listdir(self.img_dir))
@@ -34,8 +37,6 @@ class XrayImageDataset(Dataset):
             y = self.df.iloc[idx]['Label']
             if self.x_transform_func:
                 x = self.x_transform_func(x)
-            if self.y_transform_func:
-                y = self.y_transform_func(y)
             return x, torch.tensor(y)
         else:
             filename = os.listdir(self.img_dir)[idx]
@@ -46,8 +47,8 @@ class XrayImageDataset(Dataset):
             return x, y
 
     @staticmethod
-    def get_datasets():
-        dataset_dir = Path('/data/datasets/xray-dataset/v2/')
+    def get_datasets(data_dir):
+        dataset_dir = Path(data_dir)
 
         x_transform = transforms.Compose(
                 [
