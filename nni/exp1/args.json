@@ -1,0 +1,8 @@
+{
+    "data_dir": "/data/datasets/xray-dataset/v2/",
+    "epochs": 10,
+    "seed": 42,
+    "log_interval": 10,
+    "output_path": "/data/jperez/git-python-xray/nni/submission.csv",
+    "checkpoint_path": "/data/jperez/git-python-xray/nni/checkpoint.pth.tar"
+}

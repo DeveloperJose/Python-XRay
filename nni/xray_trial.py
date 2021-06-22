@@ -1,4 +1,5 @@
 import os
+import json
 import argparse
 import logging
 import nni
@@ -114,23 +115,47 @@ def test(args, model, device, test_loader):
     df.to_csv(args['output_path'], index=False)
     logger.info(f"[Test] Saved submission file to {args['output_path']}")
 
+def save_checkpoint(args, epoch, model, optimizer, loss, accuracy):
+    torch.save({
+            'epoch': epoch,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'loss': loss,
+            'accuracy': accuracy
+            }, args['checkpoint_path'])
+
+def load_checkpoint(args, model, optimizer):
+    checkpoint = torch.load(args['checkpoint_path'])
+    model.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    return checkpoint
+
 def main(args):
+    # CUDA preparation
     use_cuda = not args['no_cuda'] and torch.cuda.is_available()
     torch.manual_seed(args['seed'])
     device = torch.device("cuda" if use_cuda else "cpu")
     kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
+    logger.info(f"Using CUDA: {use_cuda}")
 
+    # Dataset preparation
     data_dir = args['data_dir']
-    train_data, val_data, test_data, x_shape, num_classes = XrayImageDataset.get_datasets(data_dir)
+    debugging = args['debugging']
+    train_data, val_data, test_data, x_shape, num_classes = XrayImageDataset.get_datasets(data_dir, debugging)
 
     train_loader = DataLoader(train_data, batch_size=args['batch_size'], shuffle=True, **kwargs)
     val_loader = DataLoader(val_data, batch_size=args['batch_size'], shuffle=True, **kwargs)
     test_loader = DataLoader(test_data, batch_size=args['batch_size'], shuffle=True, **kwargs)
 
+    # Model and optimizer preparation
     hidden_size = args['hidden_size']
     model = Net(hidden_size=hidden_size).to(device)
-    logger.info('Model=\n' + str(model))
     optimizer = optim.SGD(model.parameters(), lr=args['lr'], momentum=args['momentum'])
+    logger.info('Model=\n' + str(model))
+    logger.info('Optimizer=\n' + str(optimizer))
+
+    # Checkpoint preparation
+    best_val_accuracy = 0
 
     for epoch in range(1, args['epochs'] + 1):
         average_train_loss, train_accuracy = train(args, model, device, train_loader, optimizer)
@@ -143,6 +168,13 @@ def main(args):
         nni.report_intermediate_result(val_accuracy)
         logger.debug(f'Sent intermediate result to NNI ({val_accuracy})')
 
+        # Check if this model is our best one, if so, save the checkpoint
+        if val_accuracy > best_val_accuracy:
+            logger.info(f"This model is better than our previous best one ({val_accuracy}>{best_val_accuracy}), attempting to save checkpoint")
+            best_val_accuracy = val_accuracy
+            save_checkpoint(args, epoch, model, optimizer, average_val_loss, val_accuracy)
+            logger.info(f"Saved model to {args['checkpoint_path']}")
+
     # Report final result for NNI
     nni.report_final_result(val_accuracy)
     logger.debug(f'Sent final result to NNI ({val_accuracy})')
@@ -153,29 +185,48 @@ def main(args):
 
 def get_params():
     # Training settings
-    parser = argparse.ArgumentParser(description='AutoML XRay Script')
-    parser.add_argument("--data_dir", type=str, default='/data/datasets/xray-dataset/v2/', help="data directory")
-    parser.add_argument('--batch_size', type=int, default=8, metavar='N',help='input batch size for training')
+    parser = argparse.ArgumentParser(description='Training file to use NNI on the XRay Dataset')
+    
+    # Special parameters
+    parser.add_argument("--config_path", type=str, default=None, help='JSON file with the parameters not included in the search space')
+    parser.add_argument('--no_cuda', action='store_true', default=False, help='Disables CUDA training')
+    parser.add_argument("--debugging", action='store_true', default=False, help='Sets the dataset to a small size for debugging purposes')
+
+    # Base parameters
+    parser.add_argument("--data_dir", type=str, default=None, help="Dataset base directory")
+    parser.add_argument('--batch_size', type=int, default=None, help='Input batch size for training')
     parser.add_argument("--batch_num", type=int, default=None)
-    parser.add_argument("--hidden_size", type=int, default=256, metavar='N', help='hidden layer size')
-    parser.add_argument('--lr', type=float, default=0.01, metavar='LR', help='learning rate (default: 0.01)')
-    parser.add_argument('--momentum', type=float, default=0.5, metavar='M',help='SGD momentum (default: 0.5)')
-    parser.add_argument('--epochs', type=int, default=10, metavar='N',help='number of epochs to train (default: 10)')
-    parser.add_argument('--seed', type=int, default=1, metavar='S',help='random seed (default: 1)')
-    parser.add_argument('--no_cuda', action='store_true', default=True, help='disables CUDA training')
-    parser.add_argument('--log_interval', type=int, default=1000, metavar='N',help='how many batches to wait before logging training status')
-    parser.add_argument('--output_path', type=str, default='/data/jperez/git-python-xray/nni/submission.csv', help='where to store the test set submission file')
+    parser.add_argument("--hidden_size", type=int, default=None, help='Hidden layer size')
+    parser.add_argument('--lr', type=float, default=None, help='Learning rate')
+    parser.add_argument('--momentum', type=float, default=None, help='SGD momentum')
+    parser.add_argument('--epochs', type=int, default=None, help='Number of epochs to train')
+    parser.add_argument('--seed', type=int, default=None, help='Random seed')
+    parser.add_argument('--log_interval', type=int, default=None, help='How many batches to wait before logging training status')
+    parser.add_argument('--output_path', type=str, default=None, help='Filepath for test set submission CSV output file')
+    parser.add_argument('--checkpoint_path', type=str, default=None, help='Filepath for best model checkpoint file')
+
     args, _ = parser.parse_known_args()
     return args
 
 
 if __name__ == '__main__':
     try:
-        # get parameters form tuner
+        # Get the default parameters
+        params = vars(get_params())
+
+        # Load the JSON parameter file and override those parameters which are set there
+        with open(params['config_path']) as config_file:
+            config_json = json.load(config_file)
+            params = merge_parameter(params, config_json)
+
+        # Get searched parameters from NNI tuner
         tuner_params = nni.get_next_parameter()
         logger.debug(tuner_params)
-        params = vars(merge_parameter(get_params(), tuner_params))
-        print(params)
+
+        # Take the base parameters and override those which are changed by the tuner
+        params = merge_parameter(params, tuner_params)
+
+        logger.info("Params=\n" + str(params))
         main(params)
     except Exception as exception:
         logger.exception(exception)
