@@ -37,7 +37,9 @@ class XrayImageDataset(Dataset):
             y = self.df.iloc[idx]['Label']
             if self.x_transform_func:
                 x = self.x_transform_func(x)
-            return x, torch.tensor(y)
+            # Don't convert to tensors in __getitem__ or we will run out of shared memory in /dev/shm
+            # https://discuss.pytorch.org/t/training-crashes-due-to-insufficient-shared-memory-shm-nn-dataparallel/26396/17
+            return x, y
         else:
             filename = os.listdir(self.img_dir)[idx]
             x = np.array(Image.open(os.path.join(self.img_dir, filename)))
@@ -61,6 +63,6 @@ class XrayImageDataset(Dataset):
         val_data = XrayImageDataset(dataset_dir / 'validation-set/', dataset_dir / 'validation-labels.csv', x_transform_func=x_transform, debugging=debugging)
         test_data = XrayImageDataset(dataset_dir / 'test-set/', None, x_transform_func=x_transform, debugging=debugging)
 
-        input_shape = (3, 256, 256)
+        input_shape = (1, 3, 256, 256)
         num_classes = 2
         return train_data, val_data, test_data, input_shape, num_classes

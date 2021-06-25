@@ -1,6 +1,6 @@
 experimentName: XRay NAS with SPOS
 searchSpaceFile: nni_auto_gen_search_space.json
-trialCommand: python tester.py --batch-size 512 --workers 4 --checkpoint ./checkpoints/epoch_99.pth.tar
+trialCommand: python tester.py --batch-size 128 --workers 3 --checkpoint ./checkpoints/epoch_99.pth.tar
 trialCodeDirectory: /data/jperez/git-python-xray/nni/
 trialGpuNumber: 1
 trialConcurrency: 3

@@ -23,12 +23,12 @@ from xautodl.utils import get_model_infos
 from xautodl.log_utils import Logger, AverageMeter, time_string, convert_secs2time
 from xautodl.config_utils import load_config
 
-from xray_dataset import XrayImageDataset
+from nni.xray_dataset import XrayImageDataset
 
 def main():
     RAND_SEED = 42
     BATCH_SIZE = 128
-    N_WORKERS = 4
+    N_WORKERS = 12
     PRINT_FREQUENCY = 100
     PRINT_FREQUENCY_EVAL = 200
     EVAL_FREQUENCY = 1
@@ -39,7 +39,7 @@ def main():
     # Extra model CKP file (help to indicate searched architecture)
     EXTRA_MODEL_PATH = None
     # Resume path (if exists)
-    RESUME_PATH = None
+    RESUME_PATH = './output/simple_model/checkpoint/seed-42-best.pth'
     # The path of the initialization model
     INIT_MODEL_PATH = None
     # The path for the model architecture configuration
@@ -47,7 +47,7 @@ def main():
     # The path for the model optimization configuration
     MODEL_OPT_CONFIG_PATH = 'XRAY-Opts.config'
     # Directory to save log and model files
-    SAVE_DIR = './output/test_model/'
+    SAVE_DIR = './output/model2/'
 
     assert torch.cuda.is_available(), "CUDA is not available."
     torch.backends.cudnn.enabled = True
@@ -58,7 +58,7 @@ def main():
     prepare_seed(RAND_SEED)
     logger = Logger(SAVE_DIR, RAND_SEED)
 
-    train_data, val_data, test_data, x_shape, num_classes = XrayImageDataset.get_datasets()
+    train_data, val_data, test_data, input_shape, num_classes = XrayImageDataset.get_datasets("/data/datasets/xray-dataset/v2/", debugging=False)
 
     train_loader = torch.utils.data.DataLoader(
         train_data,
@@ -90,7 +90,7 @@ def main():
         raise ValueError(f"invalid model-source : {MODEL_SOURCE}")
     
     # Log some model information and data information
-    flop, param = get_model_infos(base_model, x_shape)
+    flop, param = get_model_infos(base_model, input_shape)
     logger.log("model ====>>>>:\n{:}".format(base_model))
     logger.log("model information : {:}".format(base_model.get_message()))
     logger.log("-" * 50)
@@ -117,6 +117,7 @@ def main():
 
     # Prepare network for training
     network, criterion = torch.nn.DataParallel(base_model).cuda(), criterion.cuda()
+    logger.log("Using CUDA: ")
 
     if last_info.exists():  # automatically resume from previous checkpoint
         logger.log(
@@ -199,7 +200,7 @@ def main():
         )
 
         # train for one epoch
-        train_loss, train_acc1, train_acc5 = train_func(
+        train_loss, train_acc1 = train_func(
             train_loader,
             network,
             criterion,
@@ -212,15 +213,15 @@ def main():
         )
         # log the results
         logger.log(
-            "***{:s}*** TRAIN [{:}] loss = {:.6f}, accuracy-1 = {:.2f}, accuracy-5 = {:.2f}".format(
-                time_string(), epoch_str, train_loss, train_acc1, train_acc5
+            "***{:s}*** TRAIN [{:}] loss = {:.6f}, accuracy-1 = {:.2f}".format(
+                time_string(), epoch_str, train_loss, train_acc1
             )
         )
 
         # evaluate the performance
         if (epoch % EVAL_FREQUENCY == 0) or (epoch + 1 == total_epoch):
             logger.log("-" * 150)
-            valid_loss, valid_acc1, valid_acc5 = valid_func(
+            valid_loss, valid_acc1 = valid_func(
                 valid_loader,
                 network,
                 criterion,
@@ -231,12 +232,11 @@ def main():
             )
             valid_accuracies[epoch] = valid_acc1
             logger.log(
-                "***{:s}*** VALID [{:}] loss = {:.6f}, accuracy@1 = {:.2f}, accuracy@5 = {:.2f} | Best-Valid-Acc@1={:.2f}, Error@1={:.2f}".format(
+                "***{:s}*** VALID [{:}] loss = {:.6f}, accuracy@1 = {:.2f}, | Best-Valid-Acc@1={:.2f}, Error@1={:.2f}".format(
                     time_string(),
                     epoch_str,
                     valid_loss,
                     valid_acc1,
-                    valid_acc5,
                     valid_accuracies["best"],
                     100 - valid_accuracies["best"],
                 )
@@ -245,12 +245,10 @@ def main():
                 valid_accuracies["best"] = valid_acc1
                 find_best = True
                 logger.log(
-                    "Currently, the best validation accuracy found at {:03d}-epoch :: acc@1={:.2f}, acc@5={:.2f}, error@1={:.2f}, error@5={:.2f}, save into {:}.".format(
+                    "Currently, the best validation accuracy found at {:03d}-epoch :: acc@1={:.2f}, error@1={:.2f}, save into {:}.".format(
                         epoch,
                         valid_acc1,
-                        valid_acc5,
                         100 - valid_acc1,
-                        100 - valid_acc5,
                         model_best_path,
                     )
                 )
