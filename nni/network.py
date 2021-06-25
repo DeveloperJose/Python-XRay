@@ -145,13 +145,19 @@ class ShuffleNetV2OneShot(nn.Module):
                     nn.init.constant_(m.bias, 0)
 
 
-def load_and_parse_state_dict(filepath="/data/checkpoint.pth.tar"):
-    checkpoint = torch.load(filepath, map_location=torch.device("cpu"))
+def load_and_parse_state_dict(filepath, using_cuda):
+    checkpoint = torch.load(filepath)
     if "state_dict" in checkpoint:
         checkpoint = checkpoint["state_dict"]
     result = dict()
     for k, v in checkpoint.items():
-        if k.startswith("module."):
-            k = k[len("module."):]
+        # For some reason when you don't use nn.DataParallel()
+        # and when you do, the dictionary changes?
+        if not using_cuda:
+            if k.startswith("module."):
+                k = k[len("module."):]
+        else:
+            if not k.startswith("module."):
+                k = "module." + k
         result[k] = v
     return result

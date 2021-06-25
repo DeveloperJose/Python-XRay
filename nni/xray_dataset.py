@@ -8,6 +8,7 @@ from PIL import Image
 from torch.utils.data import Dataset
 import torchvision.transforms as transforms
 
+
 class XrayImageDataset(Dataset):
     def __init__(self, img_dir, csv_file, x_transform_func=None, debugging=False):
         self.img_dir = img_dir
@@ -50,16 +51,16 @@ class XrayImageDataset(Dataset):
         dataset_dir = Path(data_dir)
 
         x_transform = transforms.Compose(
-                [
-                    transforms.ToPILImage(),
-                    transforms.Resize((256, 256)),
-                    transforms.ToTensor(),
-                ])
+            [
+                transforms.ToPILImage(),
+                transforms.Resize((256, 256)),
+                transforms.ToTensor(),
+            ])
 
         train_data = XrayImageDataset(dataset_dir / 'train-set/', dataset_dir / 'train-labels.csv', x_transform_func=x_transform, debugging=debugging)
         val_data = XrayImageDataset(dataset_dir / 'validation-set/', dataset_dir / 'validation-labels.csv', x_transform_func=x_transform, debugging=debugging)
         test_data = XrayImageDataset(dataset_dir / 'test-set/', None, x_transform_func=x_transform, debugging=debugging)
 
-        x_shape = (1, 3, 256, 256)
+        input_shape = (3, 256, 256)
         num_classes = 2
-        return train_data, val_data, test_data, x_shape, num_classes
+        return train_data, val_data, test_data, input_shape, num_classes

@@ -1,0 +1,182 @@
+{
+  "LayerChoice1": {
+    "_type": "layer_choice",
+    "_value": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ]
+  },
+  "LayerChoice10": {
+    "_type": "layer_choice",
+    "_value": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ]
+  },
+  "LayerChoice11": {
+    "_type": "layer_choice",
+    "_value": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ]
+  },
+  "LayerChoice12": {
+    "_type": "layer_choice",
+    "_value": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ]
+  },
+  "LayerChoice13": {
+    "_type": "layer_choice",
+    "_value": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ]
+  },
+  "LayerChoice14": {
+    "_type": "layer_choice",
+    "_value": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ]
+  },
+  "LayerChoice15": {
+    "_type": "layer_choice",
+    "_value": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ]
+  },
+  "LayerChoice16": {
+    "_type": "layer_choice",
+    "_value": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ]
+  },
+  "LayerChoice17": {
+    "_type": "layer_choice",
+    "_value": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ]
+  },
+  "LayerChoice18": {
+    "_type": "layer_choice",
+    "_value": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ]
+  },
+  "LayerChoice19": {
+    "_type": "layer_choice",
+    "_value": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ]
+  },
+  "LayerChoice2": {
+    "_type": "layer_choice",
+    "_value": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ]
+  },
+  "LayerChoice20": {
+    "_type": "layer_choice",
+    "_value": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ]
+  },
+  "LayerChoice3": {
+    "_type": "layer_choice",
+    "_value": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ]
+  },
+  "LayerChoice4": {
+    "_type": "layer_choice",
+    "_value": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ]
+  },
+  "LayerChoice5": {
+    "_type": "layer_choice",
+    "_value": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ]
+  },
+  "LayerChoice6": {
+    "_type": "layer_choice",
+    "_value": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ]
+  },
+  "LayerChoice7": {
+    "_type": "layer_choice",
+    "_value": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ]
+  },
+  "LayerChoice8": {
+    "_type": "layer_choice",
+    "_value": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ]
+  },
+  "LayerChoice9": {
+    "_type": "layer_choice",
+    "_value": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ]
+  }
+}

@@ -35,43 +35,46 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    # Using a fixed set of image will improve the performance
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
     np.random.seed(args.seed)
     random.seed(args.seed)
     torch.backends.cudnn.deterministic = True
 
-    model = ShuffleNetV2OneShot()
-    flops_func = model.get_candidate_flops
+    assert torch.cuda.is_available()
+
+    # Prepare data and model
+    train_data, val_data, test_data, input_shape, num_classes = XrayImageDataset.get_datasets(args.dataset_dir, args.debugging)
+    model = ShuffleNetV2OneShot(input_size=input_shape[1], n_classes=num_classes, op_flops_path='./data/flops.pkl')
+
+    if torch.cuda.device_count() > 1:
+        model = nn.DataParallel(model, device_ids=[0, 1, 2])
+        model.cuda()
+
+    # Load previous checkpoint if needed
     if args.load_checkpoint:
         model.load_state_dict(load_and_parse_state_dict())
-    model.cuda()
-    if torch.cuda.device_count() > 1:
-        # model = nn.DataParallel(model, device_ids=list(range(0, torch.cuda.device_count() - 1)))
-        model = nn.DataParallel(model, device_ids=[0, 1, 2])
-    
+
+    # Prepare all things required by the trainer
     mutator = SPOSSupernetTrainingMutator(model,
-                                          flops_func=flops_func,
+                                          flops_func=model.get_candidate_flops,
                                           flops_lb=290E6,
                                           flops_ub=360E6)
-    criterion = CrossEntropyLabelSmooth(num_classes=2, epsilon=args.label_smoothing)
+    criterion = CrossEntropyLabelSmooth(num_classes=num_classes, epsilon=args.label_smoothing)
     optimizer = torch.optim.SGD(model.parameters(),
                                 lr=args.learning_rate,
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay)
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
-                                                  lambda step: (
-                                                      1.0 - step / args.epochs)
-                                                  if step <= args.epochs else 0,
+                                                  lambda step: (1.0 - step / args.epochs) if step <= args.epochs else 0,
                                                   last_epoch=-1)
-    # train_loader = get_imagenet_iter_dali(
-    #     "train", args.imagenet_dir, args.batch_size, args.workers, spos_preprocessing=args.spos_preprocessing)
-    # valid_loader = get_imagenet_iter_dali(
-    #     "val", args.imagenet_dir, args.batch_size, args.workers, spos_preprocessing=args.spos_preprocessing)
-    train_data, val_data, test_data, x_shape, num_classes = XrayImageDataset.get_datasets(args.dataset_dir, args.debugging)
+
+    # Prepare data loaders
     train_loader = DataLoader(train_data, batch_size=args.batch_size, num_workers=args.workers, shuffle=True)
     val_loader = DataLoader(val_data, batch_size=args.batch_size, num_workers=args.workers, shuffle=True)
 
+    # Prepare trainer
     trainer = SPOSSupernetTrainer(model, criterion, accuracy_topk, optimizer,
                                   args.epochs, train_loader, val_loader,
                                   mutator=mutator, batch_size=args.batch_size,

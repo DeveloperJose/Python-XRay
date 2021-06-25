@@ -1,16 +1,15 @@
-authorName: Jose G. Perez
 experimentName: XRay NAS with SPOS
-trialConcurrency: 4
-maxExecDuration: 7d
-maxTrialNum: 99999
-trainingServicePlatform: local
-searchSpacePath: auto_gen_search_space.json
-useAnnotation: false
+searchSpaceFile: nni_auto_gen_search_space.json
+trialCommand: python tester.py --batch-size 512 --workers 4 --checkpoint ./checkpoints/epoch_99.pth.tar
+trialCodeDirectory: /data/jperez/git-python-xray/nni/
+trialGpuNumber: 1
+trialConcurrency: 3
+maxExperimentDuration: 48h
+maxTrialNumber: 200
+experimentWorkingDirectory: /data/jperez/nni-experiments/
 tuner:
-  codeDir: .
-  classFileName: tuner.py
-  className: EvolutionWithFlops
-trial:
-  command: python tester.py --spos-prep
-  codeDir: .
-  gpuNum: 1
+  codeDirectory: /data/jperez/git-python-xray/nni/
+  className: tuner.EvolutionWithFlops
+trainingService:
+  platform: local
+  useActiveGpu: True
