@@ -1,0 +1,16 @@
+authorName: Jose G. Perez
+experimentName: XRay NAS with SPOS
+trialConcurrency: 4
+maxExecDuration: 7d
+maxTrialNum: 99999
+trainingServicePlatform: local
+searchSpacePath: auto_gen_search_space.json
+useAnnotation: false
+tuner:
+  codeDir: .
+  classFileName: tuner.py
+  className: EvolutionWithFlops
+trial:
+  command: python tester.py --spos-prep
+  codeDir: .
+  gpuNum: 1

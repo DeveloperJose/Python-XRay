@@ -131,3 +131,6 @@ dmypy.json
 # Models (they are too heavy for github)
 *.pth
 *.tar
+
+# NNI Logs
+nni/logs
