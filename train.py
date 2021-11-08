@@ -39,7 +39,7 @@ def main():
     # Extra model CKP file (help to indicate searched architecture)
     EXTRA_MODEL_PATH = None
     # Resume path (if exists)
-    RESUME_PATH = './output/simple_model/checkpoint/seed-42-best.pth'
+    RESUME_PATH = './output/model2/checkpoint/seed-42-basic.pth'
     # The path of the initialization model
     INIT_MODEL_PATH = None
     # The path for the model architecture configuration
@@ -47,7 +47,7 @@ def main():
     # The path for the model optimization configuration
     MODEL_OPT_CONFIG_PATH = 'XRAY-Opts.config'
     # Directory to save log and model files
-    SAVE_DIR = './output/model2/'
+    SAVE_DIR = './output/round3/'
 
     assert torch.cuda.is_available(), "CUDA is not available."
     torch.backends.cudnn.enabled = True
@@ -58,7 +58,7 @@ def main():
     prepare_seed(RAND_SEED)
     logger = Logger(SAVE_DIR, RAND_SEED)
 
-    train_data, val_data, test_data, input_shape, num_classes = XrayImageDataset.get_datasets("/data/datasets/xray-dataset/v2/", debugging=False)
+    train_data, val_data, test_data, input_shape, num_classes = XrayImageDataset.get_datasets("/data/datasets/xray-dataset/v3/", debugging=False)
 
     train_loader = torch.utils.data.DataLoader(
         train_data,

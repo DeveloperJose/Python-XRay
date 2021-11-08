@@ -19,30 +19,30 @@ import pandas as pd
 import numpy as np
 from tqdm import tqdm
 
-from xray_dataset import XrayImageDataset
+from nni.xray_dataset import XrayImageDataset
 
 def main():
-    checkpoint_filepath = './output/simple_model/checkpoint/seed-42-best.pth'
-    output_filepath = './output/simple_model/submission.csv'
+    checkpoint_filepath = './output/model2/checkpoint/seed-42-basic.pth'
+    output_filepath = './output/submission_round3.csv'
 
     assert os.path.isfile(checkpoint_filepath), f'Checkpoint filepath ({checkpoint_filepath}) is not a file or does not exist'
 
     checkpoint = torch.load(checkpoint_filepath)
 
-    train_data, val_data, test_data, x_shape, num_classes = XrayImageDataset.get_datasets()
+    train_data, val_data, test_data, input_shape, num_classes = XrayImageDataset.get_datasets("/data/datasets/xray-dataset/v3/", debugging=False)
 
     test_loader = torch.utils.data.DataLoader(
         test_data,
-        batch_size=16,
+        batch_size=64,
         shuffle=False,
-        num_workers=2,
+        num_workers=12,
         pin_memory=True,
     )
 
     logger = PrintLogger()
     model_config = dict2config(checkpoint["model-config"], logger)
     base_model = obtain_model(model_config)
-    flop, param = get_model_infos(base_model, x_shape)
+    flop, param = get_model_infos(base_model, input_shape)
     logger.log("model ====>>>>:\n{:}".format(base_model))
     logger.log("model information : {:}".format(base_model.get_message()))
     logger.log("-" * 50)
